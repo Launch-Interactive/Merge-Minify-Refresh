@@ -14,7 +14,7 @@ jobs:
       # Step 2: Deploy to WordPress SVN
       - name: Deploy to WordPress.org
         uses: 10up/action-wordpress-plugin-deploy@stable
-        with:
+        env:
           SVN_USERNAME: ${{ secrets.SVN_USERNAME }}
           SVN_PASSWORD: ${{ secrets.SVN_PASSWORD }}
           SLUG: merge-minify-refresh
