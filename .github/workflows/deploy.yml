@@ -15,6 +15,6 @@ jobs:
       - name: Deploy to WordPress.org
         uses: 10up/action-wordpress-plugin-deploy@stable
         with:
-          svn_username: ${{ secrets.WP_SVN_USERNAME }}
-          svn_password: ${{ secrets.WP_SVN_PASSWORD }}
-          plugin_slug: merge-minify-refresh
+          SVN_USERNAME: ${{ secrets.SVN_USERNAME }}
+          SVN_PASSWORD: ${{ secrets.SVN_PASSWORD }}
+          SLUG: merge-minify-refresh
