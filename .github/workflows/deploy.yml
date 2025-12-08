@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       # Step 1: Checkout repo
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@master
 
       # Step 2: Deploy to WordPress SVN
       - name: Deploy to WordPress.org
