@@ -1,0 +1,20 @@
+name: Deploy to WordPress.org
+on:
+  push:
+    tags:
+      - '*'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      # Step 1: Checkout repo
+      - uses: actions/checkout@v4
+
+      # Step 2: Deploy to WordPress SVN
+      - name: Deploy to WordPress.org
+        uses: 10up/action-wordpress-plugin-deploy@v3
+        with:
+          svn_username: ${{ secrets.WP_SVN_USERNAME }}
+          svn_password: ${{ secrets.WP_SVN_PASSWORD }}
+          plugin_slug: merge-minify-refresh
