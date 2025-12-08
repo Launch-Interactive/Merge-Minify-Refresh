@@ -3,7 +3,7 @@
  * Plugin Name: Merge + Minify + Refresh
  * Plugin URI: https://wordpress.org/plugins/merge-minify-refresh
  * Description: Merge/Concatenate & Minify CSS & JS.
- * Version: 2.12
+ * Version: 2.13
  * Author: Launch Interactive
  * Author URI: http://launchinteractive.com.au
  * Requires PHP: 7.4
