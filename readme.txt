@@ -12,6 +12,8 @@ Merges/Concatenates CSS & Javascript and then minifies using Minify (for CSS) an
 
 == Description ==
 
+Development for this plugin is now done on [GitHub](https://github.com/Launch-Interactive/Merge-Minify-Refresh). Pull requests are welcome.
+
 This plugin merges/concatenates Cascading Style Sheets & Javascript files into groups. It then minifies the generated files using Minify (for CSS) and Google Closure (for JS - fallback to Minify when not available). Minification is done via WP-Cron so that it doesn't slow down the website. When JS or CSS changes files are re-processed. No need to empty cache!
 
 Inspired by [MinQueue](https://wordpress.org/plugins/minqueue/) and [Dependency Minification](https://wordpress.org/plugins/dependency-minification) plugins.
