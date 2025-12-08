@@ -13,7 +13,7 @@ jobs:
 
       # Step 2: Deploy to WordPress SVN
       - name: Deploy to WordPress.org
-        uses: 10up/action-wordpress-plugin-deploy@v3
+        uses: 10up/action-wordpress-plugin-deploy@stable
         with:
           svn_username: ${{ secrets.WP_SVN_USERNAME }}
           svn_password: ${{ secrets.WP_SVN_PASSWORD }}
