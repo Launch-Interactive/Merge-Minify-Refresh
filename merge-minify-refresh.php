@@ -3,7 +3,7 @@
  * Plugin Name: Merge + Minify + Refresh
  * Plugin URI: https://wordpress.org/plugins/merge-minify-refresh
  * Description: Merge/Concatenate & Minify CSS & JS.
- * Version: 2.13
+ * Version: 2.14
  * Author: Launch Interactive
  * Author URI: http://launchinteractive.com.au
  * Requires PHP: 7.4
@@ -31,7 +31,7 @@ use MergeMinifyRefresh\HandlesList;
 
 class MergeMinifyRefresh
 {
-	private const VERSION = '2.6';
+	private const VERSION = '2.14';
 
 	private $host = '';
 	private $root = '';
@@ -39,6 +39,7 @@ class MergeMinifyRefresh
 
 	private $mergecss = true;
 	private $checkcssimports = true;
+	private $checkjsmodules = true;
 	private $mergejs = true;
 	private $cssmin = true;
 	private $jsmin = true;
@@ -186,6 +187,7 @@ class MergeMinifyRefresh
 
 			$this->mergecss = !get_option('mmr-nomergecss');
 			$this->checkcssimports = !get_option('mmr-nocheckcssimports');
+			$this->checkjsmodules= !get_option('mmr-nocheckjsmodules');
 			$this->mergejs = !get_option('mmr-nomergejs');
 			$this->cssmin = !get_option('mmr-nocssmin');
 			$this->jsmin = !get_option('mmr-nojsmin');
@@ -392,6 +394,7 @@ class MergeMinifyRefresh
 	{
 		register_setting('mmr-group', 'mmr-nomergecss');
 		register_setting('mmr-group', 'mmr-nocheckcssimports');
+		register_setting('mmr-group', 'mmr-nocheckjsmodules');
 		register_setting('mmr-group', 'mmr-nomergejs');
 		register_setting('mmr-group', 'mmr-nocssmin');
 		register_setting('mmr-group', 'mmr-nojsmin');
@@ -448,6 +451,9 @@ class MergeMinifyRefresh
 
 		echo '<p><label><input type="checkbox" name="mmr-nocheckcssimports" value="1" ' . checked(1 == get_option('mmr-nocheckcssimports'), true, false) . '/> Skip checking for @import in CSS.</label>';
 		echo '<br/><em>Check this if you are sure your CSS doesn\'t have any @import statements. Merging will be faster.</em></p>';
+
+		echo '<p><label><input type="checkbox" name="mmr-nocheckjsmodules" value="1" ' . checked(1 == get_option('mmr-nocheckjsmodules'), true, false) . '/> Skip checking for Javascript Modules. Plugin developers should use wp_enqueue_script_module to enqueue modules but there are plenty that don\'t.</label>';
+		echo '<br/><em>Check this if you are sure you don\'t have any JS Modules. Merging will be faster.</em></p>';
 
 		echo '<p><label><input type="checkbox" name="mmr-http2push-css" value="1" ' . checked(1 == get_option('mmr-http2push-css'), true, false) . '/> Enable Preload/Push Headers for CSS</label>';
 		echo '<br/>';
@@ -921,6 +927,7 @@ class MergeMinifyRefresh
 				$srcFilter = 'script_loader_src';
 				$checkMedia = false;
 				$checkForCSSImports = false;
+				$checkForJSModules = $this->checkjsmodules;
 				break;
 
 			case 'css':
@@ -929,6 +936,7 @@ class MergeMinifyRefresh
 				$srcFilter = 'style_loader_src';
 				$checkMedia = true;
 				$checkForCSSImports = $this->checkcssimports;
+				$checkForJSModules = false;
 				break;
 
 			default:
@@ -994,6 +1002,27 @@ class MergeMinifyRefresh
 					{
 						$contents = file_get_contents($this->root . $script_path);
 						$shouldStartNewFileGroup = strpos($contents, '@import') !== false;
+					}
+
+					//detect js modules
+					if(!$shouldStartNewFileGroup && $checkForJSModules && $extension == "js" )
+					{
+						/*
+						Check if the file is a module.
+						This will not always work. There is no real good way of doing this.
+						Developers are better to enqueue modules with wp_enqueue_script_module.
+						Looks for "export", "import" & "import.meta" within the file.
+						*/
+						$contents = file_get_contents($this->root . $script_path);
+						$isModule = preg_match(
+							'/\b(import\s+[^({])|(\bexport\s)|(\bimport\.meta\b)|(\bimport\s*\()|(\bimport\s*\{)/m',
+							$contents
+						);
+						if($isModule)
+						{
+							$handles->addNonMerged($handle);
+							continue;
+						}
 					}
 
 					// Check if we should start a new group if there is extra data
