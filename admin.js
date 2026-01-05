@@ -11,13 +11,13 @@
 		timeout = null,
 		stamp = null,
 		$mmr_advanced = $('#mmr_advanced');
-		
+
 		$mmr_processed.on('click','.log',function(e)
 		{
 			e.preventDefault();
 			$(this).parent().nextAll('pre').slideToggle();
 		});
-		
+
 		$mmr_processed.on('click','.purge',function(e)
 		{
 			e.preventDefault();
@@ -25,13 +25,13 @@
 			getFiles({purge:$(this).attr('href').substr(1)});
 			$(this).parent().parent().remove();
 		});
-		
+
 		$('#mmr_advanced_toggle').on('click',function(e)
 		{
 			e.preventDefault();
 			$mmr_advanced.toggle();
 		});
-		
+
 		$('.purgeall', $mmr_processed).on('click',function(e)
 		{
 			e.preventDefault();
@@ -42,7 +42,7 @@
 			$mmr_jsprocessed_ul.html('');
 			$mmr_cssprocessed_ul.html('');
 		});
-		
+
 		function processResponse(response, $ul)
 		{
 			$(response).each(function()
@@ -78,13 +78,14 @@
 				}
 			});
 		}
-		
+
 		function getFiles(extra)
 		{
 			stamp = new Date().getTime();
 			var data = {
 				'action': 'mmr_files',
-				'stamp': stamp
+				'stamp': stamp,
+				'nonce': mmr.nonce
 			};
 			if(extra)
 			{
@@ -96,7 +97,7 @@
 				if(stamp == response.stamp) //only update when request is the latest
 				{
 					if(response.js.length > 0)
-					{ 
+					{
 						$mmr_jsprocessed.show();
 						processResponse(response.js, $mmr_jsprocessed_ul);
 					}
@@ -104,7 +105,7 @@
 					{
 						$mmr_jsprocessed.hide();
 					}
-					
+
 					if(response.css.length > 0)
 					{
 						$mmr_cssprocessed.show();
@@ -114,7 +115,7 @@
 					{
 						$mmr_cssprocessed.hide();
 					}
-					
+
 					if(response.js.length == 0 && response.css.length == 0)
 					{
 						$mmr_noprocessed.show();
@@ -125,7 +126,7 @@
 						$mmr_noprocessed.hide();
 						$mmr_processed.show();
 					}
-					
+
 					clearInterval(timeout);
 					timeout = setTimeout(getFiles, 2000);
 				}

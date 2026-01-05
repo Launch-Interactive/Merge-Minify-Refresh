@@ -100,6 +100,9 @@ modify_js_output_before_save
 
 == Changelog ==
 
+= 2.15 =
+* CSRF fixes
+
 = 2.13 =
 * Update Closure Compiler to latest version
 * Prevent divide by 0 in isFileMinified

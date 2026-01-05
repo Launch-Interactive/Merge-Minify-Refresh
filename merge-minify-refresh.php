@@ -3,7 +3,7 @@
  * Plugin Name: Merge + Minify + Refresh
  * Plugin URI: https://wordpress.org/plugins/merge-minify-refresh
  * Description: Merge/Concatenate & Minify CSS & JS.
- * Version: 2.14
+ * Version: 2.15
  * Author: Launch Interactive
  * Author URI: http://launchinteractive.com.au
  * Requires PHP: 7.4
@@ -242,16 +242,43 @@ class MergeMinifyRefresh
 
 	public function mmr_files_callback()
 	{
-		if(isset($_POST['purge']) && $_POST['purge'] == 'all')
+		//CSRF protection
+		check_ajax_referer('mmr_files_nonce', 'nonce');
+
+		// Authentication / authorization
+		if(!current_user_can('manage_options'))
+		{
+			wp_send_json_error('Unauthorized', 403);
+		}
+
+		$purge = isset($_POST['purge']) ? sanitize_text_field($_POST['purge']) : '';
+
+		if($purge == 'all')
 		{
 			$this->purgeAll();
 		}
-		else if(isset($_POST['purge']))
+		else if($purge !== '')
 		{
-			array_map('unlink', glob(MMR_CACHE_DIR . '/' . basename($_POST['purge']) . '*'));
+			$matches = glob(MMR_CACHE_DIR . '/' . basename($purge) . '*');
+			if($matches)
+			{
+				foreach($matches as $file)
+				{
+					if(is_file($file))
+					{
+						unlink($file);
+					}
+				}
+			}
 		}
 
-		$return = array('js'=>array(),'css'=>array(),'stamp'=>$_POST['stamp']);
+		$stamp = isset($_POST['stamp']) ? sanitize_text_field($_POST['stamp']) : '';
+
+		$return = array(
+			'js'=>array(),
+			'css'=>array(),
+			'stamp'=>$stamp
+		);
 
 		$files = glob(MMR_CACHE_DIR . '/*.log');
 
@@ -262,6 +289,11 @@ class MergeMinifyRefresh
 				$script_path = substr($file, 0, -4);
 
 				$ext = pathinfo($script_path, PATHINFO_EXTENSION);
+
+				if(!in_array($ext, ['js', 'css'], true))
+				{
+					continue;
+				}
 
 				$log = file_get_contents($file);
 
@@ -328,10 +360,7 @@ class MergeMinifyRefresh
 			}
 		}
 
-		header('Content-Type: application/json');
-		echo json_encode($return);
-
-		wp_die(); // this is required to terminate immediately and return a proper response
+		wp_send_json($return);
 	}
 
 	public function plugin_deactivate()
@@ -383,6 +412,9 @@ class MergeMinifyRefresh
 		$pluginDir = plugin_dir_path(__FILE__);
 		wp_enqueue_style( 'merge-minify-refresh', plugins_url('admin.css', __FILE__), array(), filemtime($pluginDir . 'admin.css'));
 		wp_enqueue_script( 'merge-minify-refresh', plugins_url('admin.js', __FILE__), array(), filemtime($pluginDir . 'admin.js'), true );
+		wp_localize_script('merge-minify-refresh', 'mmr', array(
+			'nonce' => wp_create_nonce('mmr_files_nonce')
+		));
 	}
 
 	public function admin_menu()
