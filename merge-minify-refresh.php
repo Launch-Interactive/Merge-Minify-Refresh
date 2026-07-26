@@ -1089,7 +1089,7 @@ class MergeMinifyRefresh
 					$media = null;
 					if($checkMedia)
 					{
-						$media = isset($ourList->registered[$handle]->args) ? $ourList->registered[$handle]->args : 'all';
+						$media = is_string($ourList->registered[$handle]->args) ? $ourList->registered[$handle]->args : 'all';
 					}
 
 					$strategy = $ourList->registered[$handle]->extra["strategy"] ?? null;
