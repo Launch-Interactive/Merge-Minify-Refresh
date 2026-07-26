@@ -100,6 +100,9 @@ modify_js_output_before_save
 
 == Changelog ==
 
+= 2.16 =
+* Fix for invalid media types
+
 = 2.15 =
 * CSRF fixes
 
