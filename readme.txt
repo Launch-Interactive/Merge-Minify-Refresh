@@ -100,6 +100,12 @@ modify_js_output_before_save
 
 == Changelog ==
 
+= 2.17 =
+* Refactor admin.js to use vanilla Javascript
+* Remove stale files
+* Fix global styles being written on every page load
+* Increase minimum PHP version to 8.2
+
 = 2.16 =
 * Fix for invalid media types
 
