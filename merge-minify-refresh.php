@@ -3,10 +3,10 @@
  * Plugin Name: Merge + Minify + Refresh
  * Plugin URI: https://wordpress.org/plugins/merge-minify-refresh
  * Description: Merge/Concatenate & Minify CSS & JS.
- * Version: 2.16
+ * Version: 2.17
  * Author: Launch Interactive
  * Author URI: http://launchinteractive.com.au
- * Requires PHP: 7.4
+ * Requires PHP: 8.2
  * License: GPL2
 
 Copyright 2023  Marc Castles  (email : marc@launchinteractive.com.au)
@@ -31,7 +31,8 @@ use MergeMinifyRefresh\HandlesList;
 
 class MergeMinifyRefresh
 {
-	private const VERSION = '2.16';
+	private const VERSION = '2.17';
+	private const HASH_LENGTH = 8;
 
 	private $host = '';
 	private $root = '';
@@ -146,6 +147,7 @@ class MergeMinifyRefresh
 
 		add_action('mmr_minify', array($this, 'minify_action'), 10, 1);
 		add_action('mmr_minify_check', array($this, 'minify_action'), 10, 1);
+		add_action('mmr_minify_check', array($this, 'remove_stale_files'), 20);
 
 		add_action('compress_css', array($this, 'minify_action'), 10, 1); // Depreciated
 		add_action('compress_js', array($this, 'minify_action'), 10, 1); // Depreciated
@@ -240,6 +242,45 @@ class MergeMinifyRefresh
 		}
 	}
 
+	/**
+	 * Remove merged file groups (incl. .min, .log, .accessed, .gz, .part sidecars)
+	 * that haven't been generated or accessed within MMR_EXPIRE_DAYS (default 30).
+	 * Runs at most once a day from the hourly mmr_minify_check event.
+	 */
+	public function remove_stale_files()
+	{
+		if(defined('MMR_REMOVE_EXPIRED') && !filter_var(MMR_REMOVE_EXPIRED, FILTER_VALIDATE_BOOLEAN))
+		{
+			return;
+		}
+
+		if(get_transient('mmr_stale_sweep') || !is_dir(MMR_CACHE_DIR))
+		{
+			return;
+		}
+		set_transient('mmr_stale_sweep', 1, DAY_IN_SECONDS);
+
+		$days = defined('MMR_EXPIRE_DAYS') ? absint(MMR_EXPIRE_DAYS) : 30;
+		if($days < 1)
+		{
+			return;
+		}
+		$cutoff = time() - ($days * DAY_IN_SECONDS);
+
+		foreach(glob(MMR_CACHE_DIR . "/*.accessed") ?: [] as $accessedFile)
+		{
+			if(filemtime($accessedFile) < $cutoff)
+			{
+				$hash = substr(basename($accessedFile), 0, self::HASH_LENGTH);
+				$files = glob(MMR_CACHE_DIR . "/" . $hash . "*") ?: [];
+				foreach($files as $file)
+				{
+					@unlink($file);
+				}
+			}
+		}
+	}
+
 	public function mmr_files_callback()
 	{
 		//CSRF protection
@@ -320,7 +361,7 @@ class MergeMinifyRefresh
 					$filename = basename($minpath);
 				}
 
-				$hash = substr($filename,0,strpos($filename,'-'));
+				$hash = substr($filename, 0, self::HASH_LENGTH);
 				$accessed = 'Unknown';
 				if(file_exists($script_path . '.accessed'))
 				{
@@ -343,7 +384,7 @@ class MergeMinifyRefresh
 					}
 					elseif(absint($accessed))
 					{
-						$accessed = date(get_option('date_format') ?? "F j, Y", $accessed);
+						$accessed = date(get_option('date_format') ?: "F j, Y", $accessed);
 					}
 					else
 					{
@@ -505,7 +546,7 @@ class MergeMinifyRefresh
 		echo '<p><label><input type="checkbox" name="mmr-merge-inline" value="1" ' . checked(1 == get_option('mmr-merge-inline'), true, false) . '/> Merge Inline Style &amp; Scripts</label>';
 		echo '<br/><em>By default MMR will split merged files when an inline script is detected. Enabling this will reduce the amount of merged files but may break some plugins and themes.</em></p>';
 
-		echo '<p><label class="textlabel">Ignore these files (one per line):<textarea name="mmr-ignore" placeholder="file paths (view logs to get paths)">' . get_option('mmr-ignore') . '</textarea></label></p>';
+		echo '<p><label class="textlabel">Ignore these files (one per line):<textarea name="mmr-ignore" placeholder="file paths (view logs to get paths)">' . esc_textarea(get_option('mmr-ignore')) . '</textarea></label></p>';
 
 		echo '<p><button type="submit" class="button">SAVE</button></p></form>';
 
@@ -535,6 +576,10 @@ class MergeMinifyRefresh
 				'MMR_CSS_CACHE_URL' => [
 					'example' => 'define(\'MMR_CSS_CACHE_URL\', \'https://www.website.com/cache/js\');',
 					'description' => 'Override URL for minified Stylesheets. Must be an absolute URL for this to work correctly.'
+				],
+				'MMR_EXPIRE_DAYS' => [
+					'example' => 'define(\'MMR_EXPIRE_DAYS\', 60);',
+					'description' => 'Remove merged files not generated or accessed for this many days (default 30). Set longer than your page cache lifetime.'
 				]
 			];
 
@@ -723,6 +768,19 @@ class MergeMinifyRefresh
 
 					if(!file_exists($full_path) && !$min_exists)
 					{
+						//remove existing expired files (including .log, .accessed, .gz and .part sidecars)
+						if(!defined('MMR_REMOVE_EXPIRED') || filter_var(MMR_REMOVE_EXPIRED, FILTER_VALIDATE_BOOLEAN) == true)
+						{
+							$current = $hash . '-' . $handles[$i]['modified'] . '.';
+							foreach(glob(MMR_CACHE_DIR . '/' . $hash . '-*') ?: [] as $file)
+							{
+								if(strpos(basename($file), $current) !== 0)
+								{
+									@unlink($file);
+								}
+							}
+						}
+
 						$this->hasMerged = true;
 
 						$output = '';
@@ -799,12 +857,6 @@ class MergeMinifyRefresh
 							$log .= "\n";
 						}
 
-						//remove existing expired files
-						if(!defined('MMR_REMOVE_EXPIRED') || filter_var(MMR_REMOVE_EXPIRED, FILTER_VALIDATE_BOOLEAN) == true)
-						{
-							array_map('unlink', glob(MMR_CACHE_DIR . '/' . $hash . '-*.' . $ext));
-						}
-
 						//Filter Output - https://wordpress.org/support/topic/filter-minified-merged-scripts-file
 						$output = apply_filters('modify_' . $ext . '_output_before_save', $output);
 
@@ -823,11 +875,8 @@ class MergeMinifyRefresh
 							file_put_contents($full_path . '.log', "&lt;script&gt; element is " . $handles[$i]["strategy"] . "\n", FILE_APPEND | LOCK_EX);
 						}
 					}
-					else
-					{
-						file_put_contents($full_path . '.accessed', current_time('timestamp'), LOCK_EX);
-					}
 
+					file_put_contents($full_path . '.accessed', current_time('timestamp'), LOCK_EX);
 
 					$data = '';
 					$before = [];
@@ -911,6 +960,10 @@ class MergeMinifyRefresh
 				else //external
 				{
 					$handle = $handles[$i]['handle'];
+					if($handle == "global-styles")
+					{
+						file_put_contents(MMR_CACHE_DIR . '/' . basename($scripts->registered[$handle]->src) . '.accessed', current_time('timestamp'), LOCK_EX);
+					}
 					if($ext == 'js')
 					{
 						wp_dequeue_script($handle); //need to do this so the order of scripts is retained
@@ -980,18 +1033,20 @@ class MergeMinifyRefresh
 		{
 			if($handle == "global-styles" && get_option("mmr-global-styles") == false)
 			{
-				$filename = MMR_CACHE_DIR . '/global-styles.css';
-				$old = is_file($filename) ? file_get_contents($filename) : '';
 				$new = implode("", $ourList->registered["global-styles"]->extra["after"]);
-				if($new !== $old)
+				$hash = hash("adler32", $new);
+				$filename = MMR_CACHE_DIR . '/' . $hash . '.css';
+				if(!is_file($filename))
 				{
 					file_put_contents($filename, $new, LOCK_EX);
-					// Need to clear the cache so that the filemtime call gets the correct modified time for this file
-					clearstatcache();
 				}
-				$ourList->registered["global-styles"]->src = MMR_CACHE_URL . '/global-styles.css';
+				$ourList->registered["global-styles"]->src = MMR_CACHE_URL . '/' . $hash . '.css';
 				unset($ourList->registered["global-styles"]->extra["after"]);
 				$ourList->registered["global-styles"]->args = null;
+
+				//keep separate as may be different between page loads
+				$handles->addNonMerged($handle);
+				continue;
 			}
 
 			// src may be set to false or null for inline styles and javascript.
@@ -1080,7 +1135,7 @@ class MergeMinifyRefresh
 						$handles->nextIsNewGroup();
 					}
 
-					$modifed = 0;
+					$modified = 0;
 					if(is_file($this->root . $script_path))
 					{
 						$modified = filemtime($this->root . $script_path);
