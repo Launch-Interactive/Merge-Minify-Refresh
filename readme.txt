@@ -101,8 +101,10 @@ modify_js_output_before_save
 == Changelog ==
 
 = 2.18 =
-* Fix footer scripts being output early
-* Improve module detection
+* Fix core footer scripts being merged into the header (broke the Generate Password button on wp-login.php)
+* Improve JS module detection (fewer false positives, e.g. clipboard.js with SCRIPT_DEBUG)
+* Fix CSS and JS with the same handle causing constant rebuilds
+* Fix stale file cleanup deleting current files and logging filemtime() warnings
 
 = 2.17 =
 * Refactor admin.js to use vanilla Javascript
