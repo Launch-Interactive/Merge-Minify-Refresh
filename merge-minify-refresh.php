@@ -1031,6 +1031,18 @@ class MergeMinifyRefresh
 		$handles = new HandlesList();
 		foreach($ourList->to_do as $handle)
 		{
+			/*
+			 * Leave footer scripts for the footer pass.
+			 * Use the group WordPress resolved in all_deps() rather than extra['group']:
+			 * core scripts (e.g. user-profile, clipboard) are registered with args = 1,
+			 * not extra['group'], and a footer script needed by a header script is
+			 * promoted to group 0 here, so this also keeps dependency order correct.
+			 */
+			if($ignoreFooterScripts && !empty($ourList->groups[$handle]))
+			{
+				continue;
+			}
+			
 			if($handle == "global-styles" && get_option("mmr-global-styles") == false)
 			{
 				$new = implode("", $ourList->registered["global-styles"]->extra["after"]);
@@ -1059,15 +1071,6 @@ class MergeMinifyRefresh
 
 			if(apply_filters($srcFilter, $ourList->registered[$handle]->src, $handle) !== false) //is valid src
 			{
-				if($ignoreFooterScripts)
-				{
-					$is_footer = isset($ourList->registered[$handle]->extra['group']);
-					if($is_footer)
-					{
-						//ignore this script, so go on to the next one
-						continue;
-					}
-				}
 				$script_path = parse_url($this->ensure_scheme($ourList->registered[$handle]->src), PHP_URL_PATH);
 				$script_path = $this->fix_wp_subfolder($script_path);
 
@@ -1101,9 +1104,14 @@ class MergeMinifyRefresh
 						Looks for "export", "import" & "import.meta" within the file.
 						*/
 						$contents = file_get_contents($this->root . $script_path);
+						
+						// Ignore comments (webpack leaves "/* harmony default export */" etc. in builds)
+						$code = preg_replace('#/\*.*?\*/#s', '', $contents);
+						$code = preg_replace('#^\s*//.*$#m', '', $code);
+
 						$isModule = preg_match(
-							'/\b(import\s+[^({])|(\bexport\s)|(\bimport\.meta\b)|(\bimport\s*\()|(\bimport\s*\{)/m',
-							$contents
+							'/(?:^|[;}])\s*(?:export\s*(?:default\b|\{|\*|const\b|let\b|var\b|function\b|class\b|async\b)|import\s*(?:[\w$*{]|["\'])|.*\bimport\.meta\b)/m',
+							$code
 						);
 						if($isModule)
 						{
