@@ -100,6 +100,10 @@ modify_js_output_before_save
 
 == Changelog ==
 
+= 2.18 =
+* Fix footer scripts being output early
+* Improve module detection
+
 = 2.17 =
 * Refactor admin.js to use vanilla Javascript
 * Remove stale files
