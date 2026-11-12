@@ -269,14 +269,29 @@ class MergeMinifyRefresh
 
 		foreach(glob(MMR_CACHE_DIR . "/*.accessed") ?: [] as $accessedFile)
 		{
-			if(filemtime($accessedFile) < $cutoff)
+			// May already have been removed (e.g. by a concurrent request regenerating the group)
+			$mtime = @filemtime($accessedFile);
+			if($mtime === false || $mtime >= $cutoff)
 			{
-				$hash = substr(basename($accessedFile), 0, self::HASH_LENGTH);
-				$files = glob(MMR_CACHE_DIR . "/" . $hash . "*") ?: [];
-				foreach($files as $file)
-				{
-					@unlink($file);
-				}
+				continue;
+			}
+		
+			/*
+			 * Remove only this version of the group, not every file sharing the hash.
+			 * "352f05a6-1787176521.js.accessed" -> "352f05a6-1787176521."
+			 * which matches .js, .min.js, .js.log, .min.js.gz, .part etc. for this version
+			 * but leaves a newer version (different modified time) of the same group alone.
+			 */
+			$base = basename($accessedFile, '.accessed');           // 352f05a6-1787176521.js
+			$prefix = substr($base, 0, strrpos($base, '.') + 1);   // 352f05a6-1787176521.
+			if(strlen($prefix) <= self::HASH_LENGTH)
+			{
+				continue; // unexpected filename, don't risk a broad glob
+			}
+		
+			foreach(glob(MMR_CACHE_DIR . "/" . $prefix . "*") ?: [] as $file)
+			{
+				@unlink($file);
 			}
 		}
 	}
@@ -756,7 +771,7 @@ class MergeMinifyRefresh
 					/*
 					VERSION ensures new files are generated when MMR updates
 					*/
-					$hash = hash("adler32", implode('', $handles[$i]['handles']) . self::VERSION);
+					$hash = hash("adler32", $ext . implode('', $handles[$i]['handles']) . self::VERSION);
 
 					$file_path = '/' . $hash . '-' . $handles[$i]['modified'] . '.' . $ext;
 
@@ -1105,14 +1120,12 @@ class MergeMinifyRefresh
 						*/
 						$contents = file_get_contents($this->root . $script_path);
 						
-						// Ignore comments (webpack leaves "/* harmony default export */" etc. in builds)
-						$code = preg_replace('#/\*.*?\*/#s', '', $contents);
-						$code = preg_replace('#^\s*//.*$#m', '', $code);
+						// Ignore comments (webpack leaves "/* harmony default export */" etc. in builds).
+						// Fall back to the raw contents if PCRE hits its backtrack limit on large files.
+						$code = preg_replace('#/\*.*?\*/#s', '', $contents) ?? $contents;
+						$code = preg_replace('#^\s*//.*$#m', '', $code) ?? $code;
 
-						$isModule = preg_match(
-							'/(?:^|[;}])\s*(?:export\s*(?:default\b|\{|\*|const\b|let\b|var\b|function\b|class\b|async\b)|import\s*(?:[\w$*{]|["\'])|.*\bimport\.meta\b)/m',
-							$code
-						);
+						$isModule = preg_match('/\bimport\.meta\b/', $code) === 1 || preg_match('/(?:^|[;}])\s*(?:export\b\s*(?:default\b|[{*]|const\b|let\b|var\b|function\b|class\b|async\b)|import\b\s*[\w$*{"\'])/m', $code) === 1;
 						if($isModule)
 						{
 							$handles->addNonMerged($handle);
