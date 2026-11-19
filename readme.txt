@@ -54,6 +54,8 @@ Header set Content-Encoding "gzip" env=is_gzip
 	</IfModule>
 </IfModule>
 `
+Version 2.19 add a nommr GET parameter. This is useful when you want to disable MMR for a single page without turning off the plugin.
+
 Version 1.8.8 added a "merge_minify_refresh_done" hook that fires when JS or CSS has changed.
 
 Version 1.11 added two new constants:
@@ -99,6 +101,9 @@ modify_js_output_before_save
 2. Activate the plugin through the 'Plugins' menu in WordPress
 
 == Changelog ==
+
+= 2.19 =
+* Added nommr get parameter
 
 = 2.18 =
 * Fix core footer scripts being merged into the header (broke the Generate Password button on wp-login.php)
