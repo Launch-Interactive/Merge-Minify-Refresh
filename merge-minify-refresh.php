@@ -3,7 +3,7 @@
  * Plugin Name: Merge + Minify + Refresh
  * Plugin URI: https://wordpress.org/plugins/merge-minify-refresh
  * Description: Merge/Concatenate & Minify CSS & JS.
- * Version: 2.18
+ * Version: 2.19
  * Author: Launch Interactive
  * Author URI: http://launchinteractive.com.au
  * Requires PHP: 8.2
@@ -173,7 +173,7 @@ class MergeMinifyRefresh
 				add_action('in_plugin_update_message-merge-minify-refresh/merge-minify-refresh.php', array($this, 'showUpgradeNotification'), 10, 2);
 			}
 		}
-		else if(apply_filters('should_mmr', !is_customize_preview()))
+		else if(apply_filters('should_mmr', !is_customize_preview() && !isset($_GET['nommr'])))
 		{
 			//https://wordpress.org/support/topic/php-notice-with-wp-5-1-1/#post-11494275
 			if(array_key_exists('HTTP_HOST', $_SERVER))
